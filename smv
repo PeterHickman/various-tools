@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'colorize'
+
+def copyfile(filename, dest)
+  r = system("scp -q #{filename} #{dest}")
+  return if r
+
+  puts 'Error transferring file'.red
+  exit 1
+end
+
+def getfiles(host, path)
+  x = `ssh #{host} ls -l #{path}`
+
+  h = {}
+
+  x.split("\n").each do |line|
+    next if line.start_with?('d')
+
+    y = line.split(/\s+/)
+    h[y[-1]] = y[4].to_i
+  end
+
+  h
+end
+
+filename = ARGV.shift
+dest     = ARGV.shift
+
+if filename.nil?
+  puts 'No file given'
+  exit 1
+end
+
+unless File.exist?(filename)
+  puts "Cannot find [#{filename}]".red
+  exit 1
+end
+
+if dest.nil?
+  puts 'Destination not given'.red
+  exit 1
+end
+
+host, path = dest.split(':')
+
+copyfile(filename, dest)
+files = getfiles(host, path)
+
+unless files.key?(filename)
+  puts "File [#{filename}] not transfered".red
+  exit 1
+end
+
+unless File.size(filename) == files[filename]
+  puts "File [#{filename}] did not transfer correctly".red
+  exit 1
+end
+
+File.delete(filename)
+
+puts "#{filename} transfered ok".green
+exit 0
